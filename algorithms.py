@@ -12,43 +12,25 @@ reload(experimental_setup)
 from utils              import *
 from experimental_setup import *
 
-def cp_als(abc, tensor, run_parameters):
+def cp_als(matrices, tensor, run_parameters):
     rank        = run_parameters['RANK']
     n_iter      = run_parameters['N_ITER']
     max_time    = 60
     rho         = run_parameters['REGULARIZATION_COEF']
     i_exp       = run_parameters['I_EXP']
-    def grad_norm(abc, tensor, rho=rho):
-        def grad_f_loss(abc, tensor, rho=rho):
-            a,b,c = abc
-            def gamma_rho(a,b, rho=rho):
-                return (a.T@a)*(b.T@b) + rho*np.eye(a.shape[1])         
+    A, B, C     = matrices
 
-            def g_a(a,b,c,tensor, rho=rho):
-                return a@gamma_rho(b,c, rho) - np.einsum('ijk,jr,kr->ir', tensor,b,c)
-                
-            def g_b(a,b,c,tensor, rho=rho):
-                return b@gamma_rho(c,a, rho) - np.einsum('ijk,ir,kr->jr', tensor,a,c)
-
-            def g_c(a,b,c,tensor, rho=rho):
-                return c@gamma_rho(a,b, rho) - np.einsum('ijk,ir,jr->kr', tensor,a,b)
-            return 1/np.linalg.norm(tensor)**2 * np.array([g_a(*abc, tensor), g_b(*abc, tensor), g_c(*abc, tensor)])
-        
-        da, db, dc = grad_f_loss(abc, tensor, rho=rho)
-        da, db, dc = (da*da).sum(), (db*db).sum(), (dc*dc).sum()
-        return da+db+dc
-    A, B, C = abc
     errors = []
     wtime=[]
-    print(f'rank {rank}')
-    tensor_hat  = cp_tensor_from_matrices([A, B, C],rank)
+    tensor_hat  = cp_tensor_from_matrices(matrices, run_parameters)
     errors.append(RSE(tensor_hat, tensor)) 
     wtime.append(0)
     i = 0
-    wandb.log({'Wall time': wtime[-1],
-                   'RSE': errors[-1],
-                   'Iterations': i,
-                   'Norm of the gradient': grad_norm(abc, tensor_hat, rho=rho)})
+    wandb.log({ 'Wall time': wtime[-1],
+                'RSE': errors[-1],
+                'Loss': f(matrices, tensor, run_parameters)
+                'Iterations': i,
+                'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
     
     
     start_time = time.perf_counter()
@@ -68,23 +50,43 @@ def cp_als(abc, tensor, run_parameters):
         input_c  = tensorly.tenalg.khatri_rao([A, B])
         target_c = tensorly.unfold(tensor, mode=2).T
         C = (np.linalg.solve(input_c.T @ input_c, input_c.T @ target_c)).T
-
         
-        stop_time = time.perf_counter()
-        tensor_hat  = cp_tensor_from_matrices([A, B, C],rank)
+        stop_time   = time.perf_counter()
+        tensor_hat  = cp_tensor_from_matrices(matrices, run_parameters)
         errors.append(RSE(tensor_hat, tensor))
         start_time += time.perf_counter() - stop_time
 
         wtime.append(time.perf_counter()-start_time)
-        wandb.log({'Wall time': wtime[-1],
-                   'RSE': errors[-1],
-                   'Iterations': i+1,
-                   'Norm of the gradient': grad_norm(abc, tensor_hat, rho=rho)})
+        wandb.log({ 'Wall time': wtime[-1],
+                    'RSE': errors[-1],
+                    'Loss': f(matrices, tensor, run_parameters)
+                    'Iterations': i,
+                    'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
     wandb.config.rse_start   = errors[0]
     wandb.config.rse_finish = errors[-1]
     wandb.config.n_iters     = i
     return np.array(wtime), np.array(errors)
 
+def cp_aals(matrices, tensor, run_parameters):
+    rank        = run_parameters['RANK']
+    n_iter      = run_parameters['N_ITER']
+    max_time    = 60
+    rho         = run_parameters['REGULARIZATION_COEF']
+    i_exp       = run_parameters['I_EXP']
+    A, B, C     = matrices
+
+    errors = []
+    wtime=[]
+    tensor_hat  = cp_tensor_from_matrices(matrices, run_parameters)
+    errors.append(RSE(tensor_hat, tensor)) 
+    wtime.append(0)
+    i = 0
+    wandb.log({ 'Wall time': wtime[-1],
+                'RSE': errors[-1],
+                'Loss': f(matrices, tensor, run_parameters)
+                'Iterations': i,
+                'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
+    
 
 def acc_cp_als(abc, tensor, run_parameters):
     rank        = run_parameters['RANK']
