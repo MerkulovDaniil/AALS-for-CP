@@ -1,6 +1,23 @@
 import numpy as np
+from importlib import reload
+import time
+import sys
+import tensorly
 
-def cp_als(abc, tensor, rank, n_iter = 100, max_time=60, rho=1e-4):
+# External files
+import utils
+import experimental_setup
+reload(utils)
+reload(experimental_setup)
+from utils              import *
+from experimental_setup import *
+
+def cp_als(abc, tensor, run_parameters):
+    rank        = run_parameters['RANK']
+    n_iter      = run_parameters['N_ITER']
+    max_time    = 60
+    rho         = run_parameters['REGULARIZATION_COEF']
+    i_exp       = run_parameters['I_EXP']
     def grad_norm(abc, tensor, rho=rho):
         def grad_f_loss(abc, tensor, rho=rho):
             a,b,c = abc
@@ -23,7 +40,8 @@ def cp_als(abc, tensor, rank, n_iter = 100, max_time=60, rho=1e-4):
     A, B, C = abc
     errors = []
     wtime=[]
-    tensor_hat  = cp_tensor_from_matrices([a,b,c],rank)
+    print(f'rank {rank}')
+    tensor_hat  = cp_tensor_from_matrices([A, B, C],rank)
     errors.append(RSE(tensor_hat, tensor)) 
     wtime.append(0)
     i = 0
@@ -68,7 +86,12 @@ def cp_als(abc, tensor, rank, n_iter = 100, max_time=60, rho=1e-4):
     return np.array(wtime), np.array(errors)
 
 
-def acc_cp_als(abc, tensor, rank, n_iter = 100, max_time=1, rho=1e-4):
+def acc_cp_als(abc, tensor, run_parameters):
+    rank        = run_parameters['RANK']
+    n_iter      = run_parameters['N_ITER']
+    max_time    = 60
+    rho         = run_parameters['REGULARIZATION_COEF']
+    i_exp       = run_parameters['I_EXP']
     A,B,C = abc
     
     f_loss = lambda abc: 0.5*((cp_tensor_from_matrices(abc,rank) - tensor)**2).sum()/np.linalg.norm(tensor)**2

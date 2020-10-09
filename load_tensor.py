@@ -1,4 +1,20 @@
-def generate_3d_tensor(sizes = 30, rank = 20, mu = 1e-7, mode = 'random'):
+from sklearn import preprocessing
+import numpy as np
+from importlib import reload
+
+# External files
+import utils
+import experimental_setup
+reload(utils)
+reload(experimental_setup)
+from utils              import *
+from experimental_setup import *
+
+def generate_3d_tensor(run_parameters):
+    sizes   = run_parameters['DIM']
+    rank    = run_parameters['RANK']
+    mu      = run_parameters['NOISE']
+    mode    = run_parameters['MODE']
     if type(sizes) == int:
         I,J,K = sizes, sizes, sizes
     else:
