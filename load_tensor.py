@@ -24,8 +24,10 @@ def generate_3d_tensor(run_parameters):
         B = preprocessing.normalize(np.random.randn(J, rank), norm='l2')
         C = preprocessing.normalize(np.random.randn(K, rank), norm='l2')
         N = np.random.randn(I,J,K)
+
+        matrices = (A,B,C)
         
-        T = cp_tensor_from_matrices((A,B,C),rank)
+        T = cp_tensor_from_matrices(matrices, run_parameters)
         
         T += mu*np.linalg.norm(T)/np.linalg.norm(N)*N
     elif mode == 'ill':

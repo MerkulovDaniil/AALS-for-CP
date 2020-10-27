@@ -3,6 +3,7 @@ from importlib import reload
 import time
 import sys
 import tensorly
+from scipy.optimize import minimize_scalar
 
 # External files
 import utils
@@ -28,7 +29,7 @@ def cp_als(matrices, tensor, run_parameters):
     i = 0
     wandb.log({ 'Wall time': wtime[-1],
                 'RSE': errors[-1],
-                'Loss': f(matrices, tensor, run_parameters)
+                'Loss': f(matrices, tensor, run_parameters),
                 'Iterations': i,
                 'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
     
@@ -52,6 +53,7 @@ def cp_als(matrices, tensor, run_parameters):
         C = (np.linalg.solve(input_c.T @ input_c, input_c.T @ target_c)).T
         
         stop_time   = time.perf_counter()
+        matrices    = (A,B,C)
         tensor_hat  = cp_tensor_from_matrices(matrices, run_parameters)
         errors.append(RSE(tensor_hat, tensor))
         start_time += time.perf_counter() - stop_time
@@ -59,7 +61,7 @@ def cp_als(matrices, tensor, run_parameters):
         wtime.append(time.perf_counter()-start_time)
         wandb.log({ 'Wall time': wtime[-1],
                     'RSE': errors[-1],
-                    'Loss': f(matrices, tensor, run_parameters)
+                    'Loss': f(matrices, tensor, run_parameters),
                     'Iterations': i,
                     'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
     wandb.config.rse_start   = errors[0]
@@ -74,6 +76,12 @@ def cp_aals(matrices, tensor, run_parameters):
     rho         = run_parameters['REGULARIZATION_COEF']
     i_exp       = run_parameters['I_EXP']
     A, B, C     = matrices
+    matrices_v  = np.array([A,B,C])
+    momentum_A  = 0 
+    tau         = 1
+    
+    # Here matrices stands for the x_k, while
+    # matrices_v stands for the v_k
 
     errors = []
     wtime=[]
@@ -83,10 +91,78 @@ def cp_aals(matrices, tensor, run_parameters):
     i = 0
     wandb.log({ 'Wall time': wtime[-1],
                 'RSE': errors[-1],
-                'Loss': f(matrices, tensor, run_parameters)
+                'Loss': f(matrices, tensor, run_parameters),
                 'Iterations': i,
                 'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters)})
     
+    start_time = time.perf_counter()
+    for i in range(3*n_iter):
+        sys.stdout.write('\r'+f'{i_exp}🤖 AALS. Error {errors[-1]}')
+
+        # Best convex combination
+        beta_optimal = line_search_for_beta(matrices, matrices_v, tensor, run_parameters)
+        matrices_y = matrices + beta_optimal*(matrices_v - matrices)
+
+        # Alternating step
+        gradients       = df(matrices_y, tensor, run_parameters)
+        norms_of_grads  = [np.linalg.norm(df_x) for df_x in gradients]
+        ind_max_grad    = np.argmax(norms_of_grads)
+        A, B, C         = matrices
+        if ind_max_grad == 0:
+            # optimize a
+            input_a  = tensorly.tenalg.khatri_rao([B, C])
+            target_a = tensorly.unfold(tensor, mode=0).T
+            A = (np.linalg.solve(input_a.T @ input_a, input_a.T @ target_a)).T
+        elif ind_max_grad == 1:
+            # optimize b
+            input_b  = tensorly.tenalg.khatri_rao([A, C])
+            target_b = tensorly.unfold(tensor, mode=1).T
+            B = (np.linalg.solve(input_b.T @ input_b, input_b.T @ target_b)).T
+        elif ind_max_grad == 2:
+            # optimize c
+            input_c  = tensorly.tenalg.khatri_rao([A, B])
+            target_c = tensorly.unfold(tensor, mode=2).T
+            C = (np.linalg.solve(input_c.T @ input_c, input_c.T @ target_c)).T
+        else:
+            raise Exception("Problem in alternating step")
+        
+        matrices = np.array([A,B,C])
+
+        # Euclidian Proximal Step
+        f_x = f(matrices,   tensor, run_parameters)
+        f_y = f(matrices_y, tensor, run_parameters)
+        sqared_grad_norm= np.array([np.linalg.norm(df_x)**2 for df_x in gradients]).sum()
+        temp = (f_y - f_x)*2*tau/sqared_grad_norm
+        momentum_a = (temp + np.sqrt(max(temp**2 + 4*temp*momentum_A, 0)))/2
+        momentum_A = momentum_A + momentum_a
+        matrices_v = matrices_v - momentum_a*gradients
+
+        if i % 3 == 0:
+            stop_time   = time.perf_counter()
+            tensor_hat  = cp_tensor_from_matrices(matrices, run_parameters)
+            errors.append(RSE(tensor_hat, tensor))
+            start_time += time.perf_counter() - stop_time
+
+            wtime.append(time.perf_counter()-start_time)
+            wandb.log({ 'Wall time': wtime[-1],
+                        'RSE': errors[-1],
+                        'Loss': f(matrices, tensor, run_parameters),
+                        'Iterations': i//3,
+                        'Norm of the gradient': norm_of_the_gradient(matrices, tensor, run_parameters),
+                        'beta': beta_optimal})
+    wandb.config.rse_start   = errors[0]
+    wandb.config.rse_finish = errors[-1]
+    wandb.config.n_iters     = i//3
+    return np.array(wtime), np.array(errors)
+
+def line_search_for_beta(matrices, matrices_v, tensor, run_parameters):
+    def f_scalar(beta):
+        return f(matrices + beta*(matrices_v - matrices),  tensor, run_parameters)
+    
+    res = minimize_scalar(f_scalar, bounds = [0,1])
+    return res.x
+
+
 
 def acc_cp_als(abc, tensor, run_parameters):
     rank        = run_parameters['RANK']

@@ -60,17 +60,17 @@ def init_wandb_log(run_parameters):
 def df_a(matrices, tensor, run_parameters):
     rho = run_parameters['REGULARIZATION_COEF']
     A, B, C = matrices
-    return A@gamma_rho(B, C, rho) - np.einsum('ijk,jr,kr->ir', tensor, B, C)
+    return A@gamma_rho(B, C, run_parameters) - np.einsum('ijk,jr,kr->ir', tensor, B, C)
 
 def df_b(matrices, tensor, run_parameters):
     rho = run_parameters['REGULARIZATION_COEF']
     A, B, C = matrices
-    return B@gamma_rho(C, A, rho) - np.einsum('ijk,ir,kr->jr', tensor, A, C)
+    return B@gamma_rho(C, A, run_parameters) - np.einsum('ijk,ir,kr->jr', tensor, A, C)
 
 def df_c(matrices, tensor, run_parameters):
     rho = run_parameters['REGULARIZATION_COEF']
     A, B, C = matrices
-    return C@gamma_rho(A, B, rho) - np.einsum('ijk,ir,jr->kr', tensor, A, B)
+    return C@gamma_rho(A, B, run_parameters) - np.einsum('ijk,ir,jr->kr', tensor, A, B)
 
 def gamma_rho(A, B, run_parameters):
     rho = run_parameters['REGULARIZATION_COEF']
