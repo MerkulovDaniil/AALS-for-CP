@@ -1,3 +1,9 @@
+from tensorly.cp_tensor import validate_cp_rank
+from tensorly.decomposition._cp import initialize_cp
+from tensorly.cp_tensor import unfolding_dot_khatri_rao
+from tensorly.cp_tensor import CPTensor
+import numpy as np
+
 def f(cp_tensor, tensor, rho):
     return 0.5*tl.norm(tl.cp_to_tensor(cp_tensor) - tensor)**2 + 0.5*rho * tl.norm(factors)**2
 
