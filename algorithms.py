@@ -4,7 +4,7 @@ import time
 import sys
 import tensorly
 from scipy.optimize import minimize_scalar
-#zalupa 
+#ты залупа
 # External files
 import utils
 import experimental_setup
