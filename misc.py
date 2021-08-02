@@ -21,8 +21,15 @@ def check_exp(project, name, params):
             return True
     return False
 
-def compare_dicts(params, exp_params):
-    for key in params:
-        if exp_params[key] != params[key]:
-            return False
-    return True
+# # same with (params.items() <= exp.get_parameters().items())
+# def compare_dicts(params, exp_params):
+#     for key in params:
+#         if exp_params[key] != params[key]:
+#             return False
+#     return True
+
+def tag_picking(project, labels = ['owner', 'created', 'running_time'], tag=['finished_successfully']):
+    data = project.get_leaderboard()
+    data = data.drop(labels=labels, axis=1)
+    succ_experiments =  project.get_experiments(tag=tag)
+    return succ_experiments
