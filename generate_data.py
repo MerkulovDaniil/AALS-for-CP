@@ -40,21 +40,10 @@ def scale(factors):
         tensor_norm *= block_norm
     return factors * (tensor_norm**(1/factors.shape[0]))
 
-def warm(factors, rho):
-    mask = np.ones(factors.shape[0],dtype=bool)
-    eye = np.eye(factors.shape[-1])
-    for mode in range(factors.shape[0]):
-        mask[mode]=False
-        inp  = tl.tenalg.khatri_rao(factors[mask])
-        tar = tl.unfold(tensor, mode=mode).T
-        factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
-        mask[mode]=True
-    return factors
-
 
 def generate_starting_point(tensor, rank, rho):
     a = preprocessing.normalize(np.random.random((tensor.shape[0], rank)), norm='l2')
     b = preprocessing.normalize(np.random.random((tensor.shape[1], rank)), norm='l2')
     c = preprocessing.normalize(np.random.random((tensor.shape[2], rank)), norm='l2')
-    factors = warm(np.array([a,b,c]), rho)
+    factors = np.array([a,b,c])
     return scale(factors)
