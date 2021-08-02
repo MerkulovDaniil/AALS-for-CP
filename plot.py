@@ -192,4 +192,4 @@ def pltr(data, labels, colors, xlabel=None, ylabel=None, n_grid=100):
     ax.grid(axis='both')
 
     plt.grid(True)
-    plt.savefig('cp-av.png', dpi=200, bbox_extra_artists=(leg, ax), bbox_inches='tight')
+    # plt.savefig('cp-av.png', dpi=200, bbox_extra_artists=(leg, ax), bbox_inches='tight')
