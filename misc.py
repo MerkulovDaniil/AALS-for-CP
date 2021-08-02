@@ -20,3 +20,9 @@ def check_exp(project, name, params):
         if exp.get_system_properties()['name'] == name and exp.get_parameters()==params:
             return True
     return False
+
+def compare_dicts(params, exp_params):
+    for key in params:
+        if exp_params[key] != params[key]:
+            return False
+    return True
