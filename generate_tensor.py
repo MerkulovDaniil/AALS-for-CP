@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn import preprocessing
 import random
-
+import tensorly as tl
 
 def generate_3d_tensor(sizes, rank, mu):
     if type(sizes) == int:
