@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import math
-%matplotlib inline
 import matplotlib.pyplot as plt
 import copy
 from numpy import linalg
@@ -99,7 +98,7 @@ def pltt(data, labels, colors, xlabel=None, ylabel=None, n_grid=100):
     # plt.savefig('/content/drive/My Drive/colab/ACC-SIN-std.png', dpi=200, bbox_extra_artists=(leg, ax), bbox_inches='tight')
 
 
-def pltr(data, labels, colors, xlabel=None, ylabel=None, n_grid=100):
+def pltr(params_list, data, labels, colors, xlabel=None, ylabel=None, n_grid=100):
 
     data_new=[]
     x_max=[]
@@ -109,6 +108,7 @@ def pltr(data, labels, colors, xlabel=None, ylabel=None, n_grid=100):
         data_new=[]
         for j, alg in enumerate(data[i]):
             data_new.append([[],[]])
+            print(np.array(data).shape)
             x = data[i][j][0]
             y = data[i][j][1]
             if j == 0:
