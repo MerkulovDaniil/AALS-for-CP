@@ -3,6 +3,7 @@ import neptune
 from generate_data import RSE
 import time
 import numpy as np
+from oracles import *
 
 def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
@@ -30,7 +31,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
             
             mode = np.argmax([da, db, dc])
             x_new = y.copy()
-            x_new[mode] = (np.linalg.solve(X[mode], Y[mode]).T
+            x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
             f_x_new=f_loss(x_new)
             return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
         else:
@@ -106,6 +107,7 @@ def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
     mu=0 #ONLY!
     sa = 0.
     tau = 1.
+    x = x.copy()
     v = x.copy()
     f_x = f_loss(x)
     h=np.ones(len(x), np.float64)
