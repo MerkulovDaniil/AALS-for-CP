@@ -4,7 +4,7 @@ from generate_data import RSE
 import time
 import numpy as np
 
-def als(factors, tensor, rank, rho, max_time=60, verbose=True):
+def als(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
     tensor_hat  = tl.cp_to_tensor((None, factors))  
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
     neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
@@ -22,12 +22,12 @@ def als(factors, tensor, rank, rho, max_time=60, verbose=True):
             mask[mode]=True
         t-=-3
 
-        if verbose and t % 30 == 0:
+        if True and t % 30 == 0:
             stop_time = time.time()
             tensor_hat  = tl.cp_to_tensor((None, factors))
             logging_time = stop_time - start_time
-            neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
-            neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
+            neptune.log_metric('RSE (i)', x=t, y=RSE(tensor_hat, tensor))
+            neptune.log_metric('RSE (t)', x=logging_time, y=RSE(tensor_hat, tensor))  
             if logging_time > max_time:
                 return logging_time
             start_time += time.time() - stop_time

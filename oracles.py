@@ -1,5 +1,6 @@
- import tensorly as tl
- def f(factors, tensor, rho):
+import tensorly as tl
+
+def f(factors, tensor, rho):
     return 0.5*tl.norm(tl.cp_to_tensor((None, factors)) - tensor)**2 + 0.5*rho * tl.norm(factors)**2
 
 def grad_f(factors, tensor, rho):
