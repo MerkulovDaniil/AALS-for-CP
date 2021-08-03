@@ -4,7 +4,7 @@ from generate_data import RSE
 import time
 import numpy as np
 
-def am(factors, tensor, rank, rho, max_time=60, verbose=True):
+def als(factors, tensor, rank, rho, max_time=60, verbose=True):
     tensor_hat  = tl.cp_to_tensor((None, factors))  
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
     neptune.log_metric('RSE', y=RSE(tensor_hat, tensor), x=0)  
