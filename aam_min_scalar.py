@@ -1,10 +1,4 @@
-import tensorly as tl
-import neptune
-from generate_data import RSE
-import time
-import numpy as np
-
-def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
+def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
     def check(h, args, forcereturn=False):
         f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps = args
@@ -23,15 +17,21 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
             grad_f_y[j] = (X[-1]@y[j].T - Y[-1]).T
             mask[j]=True
 
-        if ((grad_f_y*(v-y)).sum() >= 0 and (f_x > f_y)) or forcereturn or i ==0:
+        if ((grad_f_y*(v-y)).sum() >= 0 and (f_x > f_y)) or forcereturn or i == 0:
             da, db, dc = grad_f_y
             da, db, dc = (da*da).sum(), (db*db).sum(), (dc*dc).sum()
             norm2_grad_f_y = da+db+dc
+            x_new = [y.copy() for j in range(grad_f_y.shape[0])]
+            # x_new = y[:,None]
+            f_x_new = []
+            for j in range(grad_f_y.shape[0]):
+                x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                f_x_new.append(f_loss(x_new[j]))
+
+            j_star = np.argmin(f_x_new)
             
-            mode = np.argmax([da, db, dc])
-            x_new = y.copy()
-            x_new[mode] = (np.linalg.solve(X[mode], Y[mode]).T
-            f_x_new=f_loss(x_new)
+            x_new = x_new[j_star]
+            f_x_new=f_x_new[j_star]
             return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
         else:
             return False, grad_f_y
@@ -93,7 +93,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
+def aam_min_scalar(x, tensor, rank, rho, sg_steps, max_time):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
@@ -108,7 +108,7 @@ def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
     tau = 1.
     v = x.copy()
     f_x = f_loss(x)
-    h=np.ones(len(x), np.float64)
+    h=np.ones(3, np.float64)
 
     i=0
     mode=0
@@ -116,7 +116,7 @@ def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
     start_time = time.time()
     while True:
         # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
-        ret, forcereturn = aam_max_grad_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
+        ret, forcereturn = aam_min_scalar_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
 
         if forcereturn:
             print('restart\n')
@@ -132,10 +132,8 @@ def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
         restarted = False
 
 
-
         y, f_y, grad_f_y, norm2_grad_f_y, x, f_x, mode, t_tmp = ret
         h[mode]=t_tmp
-
         if f_x > f_y:
             return logging_time
             x=y.copy()
@@ -155,6 +153,7 @@ def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
         tau = tau+mu*a
         v/=tau
         i-=-1
+        
 
         stop_time = time.time()
         tensor_hat  = tl.cp_to_tensor((None, x))
