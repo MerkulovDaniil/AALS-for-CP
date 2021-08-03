@@ -94,7 +94,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_max_grad(x, tensor, rank, rho, sg_steps, max_time):
+def aam_max_grad(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
