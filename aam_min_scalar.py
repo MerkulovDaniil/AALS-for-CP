@@ -106,6 +106,7 @@ def aam_min_scalar(x, tensor, rank, rho, sg_steps, max_time):
     mu=0 #ONLY!
     sa = 0.
     tau = 1.
+    x = x.copy()
     v = x.copy()
     f_x = f_loss(x)
     h=np.ones(3, np.float64)
