@@ -5,6 +5,7 @@ import time
 import numpy as np
 
 def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
+    factors=factors.copy()
     tensor_hat  = tl.cp_to_tensor((None, factors))  
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
     neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
