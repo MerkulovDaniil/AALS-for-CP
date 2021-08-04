@@ -4,11 +4,12 @@ from generate_data import RSE
 import time
 import numpy as np
 from oracles import *
+import sys
 
 def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
     def check(h, args, forcereturn=False):
-        f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps = args
+        f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps = args
         print(i,': ', h)
         y = v + h * (x-v)
         f_y = f_loss(y)
@@ -98,7 +99,7 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method=None, method_steps
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
-    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps
+    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
@@ -117,9 +118,12 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method=None, method_steps
     norm2_grad_f_y=None
     start_time = time.time()
     while True:
-        # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
+        in_time = time.time()
         ret, forcereturn = aam_max_grad_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
+        sys.stdout.write('\r'+f'🤖 AALS. Error {time.time()-in_time}')
 
+
+        print('\n')
         if forcereturn:
             print('restart\n')
             mu=0 #ONLY!
@@ -161,8 +165,8 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method=None, method_steps
         stop_time = time.time()
         tensor_hat  = tl.cp_to_tensor((None, x))
         logging_time = stop_time - start_time
-        neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
-        neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
+        neptune.log_metric('RSE (i)', x=i, y=RSE(tensor_hat, tensor))
+        neptune.log_metric('RSE (t)', x=logging_time, y=RSE(tensor_hat, tensor))  
     
         if logging_time > max_time:
             return logging_time
