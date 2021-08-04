@@ -1,7 +1,15 @@
+import tensorly as tl
+import neptune
+from generate_data import RSE
+import time
+import numpy as np
+from oracles import *
+import sys
+
 def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
     def check(h, args, forcereturn=False):
-        f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps = args
+        f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps = args
         print(i,': ', h)
         y = v + h * (x-v)
         f_y = f_loss(y)
@@ -32,7 +40,7 @@ def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
             
             x_new = x_new[j_star]
             f_x_new=f_x_new[j_star]
-            return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
+            return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, j_star, h), forcereturn)
         else:
             return False, grad_f_y
 
@@ -93,11 +101,11 @@ def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_min_scalar(x, tensor, rank, rho, sg_steps, max_time):
+def aam_min_scalar(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
-    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps
+    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
@@ -118,7 +126,7 @@ def aam_min_scalar(x, tensor, rank, rho, sg_steps, max_time):
     while True:
         # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
         ret, forcereturn = aam_min_scalar_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
-
+        print('\n')
         if forcereturn:
             print('restart\n')
             mu=0 #ONLY!
@@ -159,8 +167,8 @@ def aam_min_scalar(x, tensor, rank, rho, sg_steps, max_time):
         stop_time = time.time()
         tensor_hat  = tl.cp_to_tensor((None, x))
         logging_time = stop_time - start_time
-        neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
-        neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
+        neptune.log_metric('RSE (i)', x=3*i, y=RSE(tensor_hat, tensor))
+        neptune.log_metric('RSE (t)', x=logging_time, y=RSE(tensor_hat, tensor))  
     
         if logging_time > max_time:
             return logging_time
