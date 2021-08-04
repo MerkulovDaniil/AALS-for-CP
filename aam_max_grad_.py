@@ -128,11 +128,11 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps
     while True:
         in_time = time.time()
         ret, forcereturn = aam_max_grad_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
-        sys.stdout.write('\r'+f'🤖 AALS. Error {time.time()-in_time}')
+        # sys.stdout.write('\r'+f'🤖 AALS. Error {time.time()-in_time}')
 
 
         print('\n')
-        if forcereturn:
+        if forcereturn and f_x < f_y:
             print('restart\n')
             mu=0 #ONLY!
             sa = 0.
