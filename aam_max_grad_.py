@@ -5,6 +5,7 @@ import time
 import numpy as np
 from oracles import *
 import sys
+import scipy
 
 def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
@@ -25,7 +26,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
             grad_f_y[j] = (X[-1]@y[j].T - Y[-1]).T
             mask[j]=True
 
-        if ((grad_f_y*(v-y)).sum() >= 0 and (f_x > f_y)) or forcereturn or i ==0:
+        if ((grad_f_y*(v-y)).sum() >= 0 and (f_x > f_y)) or forcereturn or i == 0:
             da, db, dc = grad_f_y
             da, db, dc = (da*da).sum(), (db*db).sum(), (dc*dc).sum()
             norm2_grad_f_y = da+db+dc
@@ -35,7 +36,8 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
             if solve_method == 'np.linalg.solve':
                 x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
             elif solve_method == 'cg':
-                x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
+                for i_column, rhs_column in enumerate(Y[mode].T):
+                    x_new[mode][i_column, :], _ = scipy.sparse.linalg.cg(X[mode], rhs_column, maxiter=method_steps)
             else:
                 x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
             f_x_new=f_loss(x_new)
@@ -101,7 +103,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_max_grad(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
+def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps=5):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)

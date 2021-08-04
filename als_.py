@@ -3,6 +3,7 @@ import neptune
 from generate_data import RSE
 import time
 import numpy as np
+import scipy
 
 def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
     factors=factors.copy()
@@ -19,7 +20,17 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
             mask[mode]=False
             inp  = tl.tenalg.khatri_rao(factors[mask])
             tar = tl.unfold(tensor, mode=mode).T
-            factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
+
+            if solve_method == 'np.linalg.solve':
+                factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
+            elif solve_method == 'cg':
+                X = inp.T @ inp + rho*eye
+                Y = inp.T @ tar
+                for i_column, rhs_column in enumerate(Y.T):
+                    factors[mode][i_column, :], _ = scipy.sparse.linalg.cg(X, rhs_column, maxiter=method_steps)
+            else:
+                factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
+
             mask[mode]=True
         t-=-3
 
