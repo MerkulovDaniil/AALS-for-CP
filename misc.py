@@ -17,7 +17,9 @@
 def check_exp(project, name, params):
     succExperiments =  project.get_experiments(tag=['finished_successfully', name])
     for exp in succExperiments:
-        if exp.get_system_properties()['name'] == name and exp.get_parameters()==params:
+        exp_dict = exp.get_parameters()
+        exp_dict = replace_None_string_with_None(exp_dict)
+        if exp.get_system_properties()['name'] == name and exp_dict==params:
             return True
     return False
 
@@ -33,3 +35,6 @@ def tag_picking(project, labels = ['owner', 'created', 'running_time'], tag=['fi
     data = data.drop(labels=labels, axis=1)
     succ_experiments =  project.get_experiments(tag=tag)
     return succ_experiments
+
+def replace_None_string_with_None(some_dict):
+    return { k: (None if v == 'None' else v) for k, v in some_dict.items() }
