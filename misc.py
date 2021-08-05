@@ -48,5 +48,7 @@ def process_dict(some_dict):
     some_dict['rank']           = int(some_dict['rank'])
     some_dict['method_steps']   = int(some_dict['dim'])
     some_dict['seed']           = int(some_dict['seed'])
+    some_dict['rho']            = float(some_dict['rho'])
+    some_dict['noise']          = float(some_dict['noise'])
     return some_dict
 
