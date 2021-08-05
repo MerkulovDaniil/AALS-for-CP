@@ -30,7 +30,7 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
                 Y = inp.T @ tar
                 for i_column, rhs_column in enumerate(Y.T):
                     factors[mode][i_column, :], _ = scipy.sparse.linalg.cg(X, rhs_column, x0 = factors[mode][i_column, :], maxiter=method_steps)
-                    print(f'💩 CG steps {_}')
+                    # print(f'💩 CG steps {_}')
             else:
                 factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
             mask[mode]=True
@@ -46,8 +46,8 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
             if logging_val_old < logging_val:
                 print(f'Nazar 🐓 soset cock: {logging_val - logging_val_old}')
                 return logging_time
-            # if logging_time > max_time:
-            #     return logging_time
+            if logging_time > max_time:
+                return logging_time
             start_time += time.time() - stop_time
 
 
