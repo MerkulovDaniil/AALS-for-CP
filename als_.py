@@ -8,6 +8,7 @@ import scipy
 def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
     factors=factors.copy()
     tensor_hat  = tl.cp_to_tensor((None, factors))  
+    logging_val_old = RSE(tensor_hat, tensor)
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
     neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
     
@@ -30,17 +31,25 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
                     factors[mode][i_column, :], _ = scipy.sparse.linalg.cg(X, rhs_column, maxiter=method_steps)
             else:
                 factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
-
             mask[mode]=True
-        t-=-3
+            t-=-1
 
-        if True and t % 30 == 0:
-            stop_time = time.time()
-            tensor_hat  = tl.cp_to_tensor((None, factors))
-            logging_time = stop_time - start_time
-            neptune.log_metric('RSE (i)', x=t, y=RSE(tensor_hat, tensor))
-            neptune.log_metric('RSE (t)', x=logging_time, y=RSE(tensor_hat, tensor))  
-            if logging_time > max_time:
-                return logging_time
-            start_time += time.time() - stop_time
+            if True:
+                stop_time = time.time()
+                tensor_hat  = tl.cp_to_tensor((None, factors))
+                logging_time = stop_time - start_time
+                logging_val_old = logging_val
+                logging_val = RSE(tensor_hat, tensor)
+                neptune.log_metric('RSE (i)', x=t, y=logging_val)
+                neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+                if logging_val_old > logging_val:
+                    return logging_time
+                # if logging_time > max_time:
+                #     return logging_time
+                start_time += time.time() - stop_time
 
+
+
+        
+
+        
