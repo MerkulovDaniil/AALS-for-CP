@@ -5,7 +5,7 @@ import time
 import numpy as np
 import scipy
 
-def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None):
+def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None, noise=None):
     factors=factors.copy()
     tensor_hat  = tl.cp_to_tensor((None, factors))  
     logging_val_old = RSE(tensor_hat, tensor)
@@ -41,10 +41,14 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
             logging_time = stop_time - start_time
             logging_val_old = logging_val
             logging_val = RSE(tensor_hat, tensor)
+            
+            if noise is not None and logging_val < noise:
+                return logging_time
+
             neptune.log_metric('RSE (i)', x=t, y=logging_val)
             neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
             if logging_val_old < logging_val:
-                print(f'Nazar 🐓 soset cock: {logging_val - logging_val_old}')
+                print(f'Nazar 🐓 s♂️set c♂️ck: {logging_val - logging_val_old}')
                 return logging_time
             if logging_time > max_time:
                 return logging_time

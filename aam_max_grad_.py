@@ -106,7 +106,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps=5):
+def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps=5, noise=None):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
@@ -133,7 +133,6 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps
         ret, forcereturn = aam_max_grad_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
         sys.stdout.write('\r'+f'🤖 AALS. Error {time.time()-in_time}')
 
-
         print('\n')
         if forcereturn and f_x < f_y:
             print('restart\n')
@@ -153,14 +152,14 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps
         y, f_y, grad_f_y, norm2_grad_f_y, x, f_x, mode, t_tmp = ret
         h[mode]=t_tmp
 
-        if f_x > f_y:
-            return logging_time
-            x=y.copy()
-            f_x = f_y
-            mu=0 #ONLY!
-            sa = 0.
-            tau = 1.
-            v = x.copy()
+        # if f_x > f_y:
+        #     return logging_time
+        #     x=y.copy()
+        #     f_x = f_y
+        #     mu=0 #ONLY!
+        #     sa = 0.
+        #     tau = 1.
+        #     v = x.copy()
 
         fxfy, vy = f_x-f_y, v-y
         ac = norm2_grad_f_y + 2*mu*fxfy
@@ -176,9 +175,14 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps
         stop_time = time.time()
         tensor_hat  = tl.cp_to_tensor((None, x))
         logging_time = stop_time - start_time
-        neptune.log_metric('RSE (i)', x=i, y=RSE(tensor_hat, tensor))
-        neptune.log_metric('RSE (t)', x=logging_time, y=RSE(tensor_hat, tensor))  
-    
+        logging_val = RSE(tensor_hat, tensor)
+            
+        if noise is not None and logging_val < noise:
+            return logging_time
+
+        neptune.log_metric('RSE (i)', x=i, y=logging_val)
+        neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+
         if logging_time > max_time:
             return logging_time
         start_time += time.time() - stop_time
