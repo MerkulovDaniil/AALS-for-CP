@@ -42,6 +42,8 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
             else:
                 x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
             f_x_new=f_loss(x_new)
+            if f_x_new > f_x:
+                forcereturn = True
         
             return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
         else:

@@ -40,6 +40,8 @@ def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
             
             x_new = x_new[j_star]
             f_x_new=f_x_new[j_star]
+            if f_x_new > f_x:
+                forcereturn = True
             return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, j_star, h), forcereturn)
         else:
             return False, grad_f_y
