@@ -133,7 +133,7 @@ def aam_max_grad(x, tensor, rank, rho, max_time, solve_method='cg', method_steps
 
 
         print('\n')
-        if forcereturn:
+        if forcereturn and f_x < f_y:
             print('restart\n')
             mu=0 #ONLY!
             sa = 0.

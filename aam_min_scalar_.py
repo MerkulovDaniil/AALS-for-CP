@@ -127,7 +127,7 @@ def aam_min_scalar(x, tensor, rank, rho, max_time, solve_method=None, method_ste
         # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
         ret, forcereturn = aam_min_scalar_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
         print('\n')
-        if forcereturn:
+        if forcereturn and f_x < f_y:
             print('restart\n')
             mu=0 #ONLY!
             sa = 0.
