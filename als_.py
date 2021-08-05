@@ -9,6 +9,7 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
     factors=factors.copy()
     tensor_hat  = tl.cp_to_tensor((None, factors))  
     logging_val_old = RSE(tensor_hat, tensor)
+    logging_val     = logging_val_old
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
     neptune.log_metric('RSE (t)', x=0, y=RSE(tensor_hat, tensor))  
     
