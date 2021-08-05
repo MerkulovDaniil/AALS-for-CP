@@ -34,19 +34,19 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
             mask[mode]=True
             t-=-1
 
-            if True:
-                stop_time = time.time()
-                tensor_hat  = tl.cp_to_tensor((None, factors))
-                logging_time = stop_time - start_time
-                logging_val_old = logging_val
-                logging_val = RSE(tensor_hat, tensor)
-                neptune.log_metric('RSE (i)', x=t, y=logging_val)
-                neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
-                if logging_val_old > logging_val:
-                    return logging_time
-                # if logging_time > max_time:
-                #     return logging_time
-                start_time += time.time() - stop_time
+        if True:
+            stop_time = time.time()
+            tensor_hat  = tl.cp_to_tensor((None, factors))
+            logging_time = stop_time - start_time
+            logging_val_old = logging_val
+            logging_val = RSE(tensor_hat, tensor)
+            neptune.log_metric('RSE (i)', x=t, y=logging_val)
+            neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+            if logging_val_old > logging_val:
+                return logging_time
+            # if logging_time > max_time:
+            #     return logging_time
+            start_time += time.time() - stop_time
 
 
 
