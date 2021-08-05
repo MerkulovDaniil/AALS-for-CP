@@ -4,6 +4,7 @@ from generate_data import RSE
 import time
 import numpy as np
 import scipy
+from oracles import *
 
 def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=None, noise=None):
     factors=factors.copy()
@@ -29,7 +30,7 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
                 X = inp.T @ inp + rho*eye
                 Y = inp.T @ tar
                 for i_column, rhs_column in enumerate(Y.T):
-                    factors[mode][i_column, :], _ = scipy.sparse.linalg.cg(X, rhs_column, x0 = factors[mode][i_column, :], maxiter=method_steps)
+                    factors[mode][i_column, :], _ = scipy.sparse.linalg.cg(X, rhs_column, x0 = factors[mode][i_column, :], tol = 1e-12, maxiter=method_steps)
                     # print(f'💩 CG steps {_}')
             else:
                 factors[mode] = (np.linalg.solve(inp.T @ inp + rho*eye, inp.T @ tar)).T
@@ -46,10 +47,17 @@ def als(factors, tensor, rank, rho, max_time, solve_method=None, method_steps=No
                 return logging_time
 
             neptune.log_metric('RSE (i)', x=t, y=logging_val)
-            neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+            neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)
+
+            print(f'Nazar 🐓 s♂️set c♂️ck: {logging_val - logging_val_old}')
+            print(f'🤗 Grad norm {np.linalg.norm(grad_f(factors, tensor, rho))}')
+            print(f'🍆 Block grad norm {[np.linalg.norm(block) for block in grad_f(factors, tensor, rho)]}')  
+            
             if logging_val_old < logging_val:
-                print(f'Nazar 🐓 s♂️set c♂️ck: {logging_val - logging_val_old}')
-                return logging_time
+                print(f'🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓🐓')
+                # print(f'🤗 Grad norm {np.linalg.norm(grad_f(factors, tensor, rho))}')
+                # print(f'🍆 Block grad norm {[np.linalg.norm(block) for block in grad_f(factors, tensor, rho)]}')
+                # return logging_time
             if logging_time > max_time:
                 return logging_time
             start_time += time.time() - stop_time

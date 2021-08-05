@@ -37,7 +37,7 @@ def aam_max_grad_iter(i, h, f_x, x, v, norm_prev, args):
                 x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T
             elif solve_method == 'cg':
                 for i_column, rhs_column in enumerate(Y[mode].T):
-                    x_new[mode][i_column, :], _ = scipy.sparse.linalg.cg(X[mode], rhs_column, x0 = x_new[mode][i_column, :], maxiter=method_steps)
+                    x_new[mode][i_column, :], _ = scipy.sparse.linalg.cg(X[mode], rhs_column, x0 = x_new[mode][i_column, :], tol = 1e-12, maxiter=method_steps)
                     # print(f'💩 CG steps {_}')
             else:
                 x_new[mode] = (np.linalg.solve(X[mode], Y[mode])).T

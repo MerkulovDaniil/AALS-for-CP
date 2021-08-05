@@ -5,11 +5,12 @@ import time
 import numpy as np
 from oracles import *
 import sys
+import scipy
 
 def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
     def check(h, args, forcereturn=False):
-        f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps = args
+        f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps = args
         print(i,': ', h)
         y = v + h * (x-v)
         f_y = f_loss(y)
@@ -34,6 +35,17 @@ def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
             f_x_new = []
             for j in range(grad_f_y.shape[0]):
                 x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+
+                if solve_method == 'np.linalg.solve':
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                elif solve_method == 'cg':
+                    for i_column, rhs_column in enumerate(Y[j].T):
+                        x_new[j][j][i_column, :], _ = scipy.sparse.linalg.cg(X[j], rhs_column, x0 = x_new[j][j][i_column, :], tol = 1e-12, maxiter=method_steps)
+                        # print(f'💩 CG steps {_}')
+                else:
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+
+
                 f_x_new.append(f_loss(x_new[j]))
 
             j_star = np.argmin(f_x_new)
@@ -107,7 +119,8 @@ def aam_min_scalar(x, tensor, rank, rho, max_time, solve_method=None, method_ste
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
-    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, method_steps
+    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps
+
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
