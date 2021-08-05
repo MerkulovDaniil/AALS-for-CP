@@ -38,3 +38,15 @@ def tag_picking(project, labels = ['owner', 'created', 'running_time'], tag=['fi
 
 def replace_None_string_with_None(some_dict):
     return { k: (None if v == 'None' else v) for k, v in some_dict.items() }
+
+def process_dict(some_dict):
+    for k, v in some_dict.items():
+        if v == 'None':
+            some_dict[k] = None
+
+    some_dict['dim']            = int(some_dict['dim'])
+    some_dict['rank']           = int(some_dict['rank'])
+    some_dict['method_steps']   = int(some_dict['dim'])
+    some_dict['seed']           = int(some_dict['seed'])
+    return some_dict
+
