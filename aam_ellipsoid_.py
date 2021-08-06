@@ -1,4 +1,13 @@
+import tensorly as tl
+import neptune
+from generate_data import RSE
+import time
 import numpy as np
+from oracles import *
+import sys
+import scipy
+
+
 def ellipsoid(oracle, x0, P0, constraints, constraints_grad, f_min, tol=1e-6):
     '''
     Ellipsoid method from page 8 of 
@@ -108,7 +117,7 @@ def oracle_hull(w, xs):
 def aam_ellipsoid_iter(i, h, f_x, x, v, norm_prev, args):
     eye = np.eye(x.shape[-1])
     def check(h, args, forcereturn=False):
-        f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps = args
+        f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps = args
         print(i,': ', h)
         y = v + h * (x-v)
         f_y = f_loss(y)
@@ -131,7 +140,16 @@ def aam_ellipsoid_iter(i, h, f_x, x, v, norm_prev, args):
             x_new = [y.copy() for j in range(grad_f_y.shape[0])]
             f_x_new = []
             for j in range(grad_f_y.shape[0]):
-                x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                # x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                if solve_method == 'np.linalg.solve':
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                elif solve_method == 'cg':
+                    for i_column, rhs_column in enumerate(Y[j].T):
+                        x_new[j][j][i_column, :], _ = scipy.sparse.linalg.cg(X[j], rhs_column, x0 = x_new[j][j][i_column, :], tol = 1e-12, maxiter=method_steps)
+                        # print(f'💩 CG steps {_}')
+                else:
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+
                 f_x_new.append(f_loss(x_new[j]))
 
             j_star = np.argmin(f_x_new)
@@ -236,11 +254,11 @@ def aam_ellipsoid_iter(i, h, f_x, x, v, norm_prev, args):
         else:
             hl=hc
 
-def aam_ellipsoid(x, tensor, rank, rho, sg_steps, max_time):
+def aam_ellipsoid(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None, noise=None):
     f_loss = lambda x : f(x, tensor, rho)
     grad_f_loss = lambda x : grad_f(x, tensor, rho)
     argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
-    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, sg_steps
+    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
@@ -261,7 +279,7 @@ def aam_ellipsoid(x, tensor, rank, rho, sg_steps, max_time):
         # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
         ret, forcereturn = aam_ellipsoid_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
 
-        if forcereturn:
+        if forcereturn and f_x < f_y:
             print('restart\n')
             mu=0 #ONLY!
             sa = 0.
@@ -278,14 +296,15 @@ def aam_ellipsoid(x, tensor, rank, rho, sg_steps, max_time):
 
         y, f_y, grad_f_y, norm2_grad_f_y, x, f_x, mode, t_tmp = ret
         h[mode]=t_tmp
-        if f_x > f_y:
-            return logging_time
-            x=y.copy()
-            f_x = f_y
-            mu=0 #ONLY!
-            sa = 0.
-            tau = 1.
-            v = (warm(x, rho)).copy()
+
+        # if f_x > f_y:
+        #     return logging_time
+        #     x=y.copy()
+        #     f_x = f_y
+        #     mu=0 #ONLY!
+        #     sa = 0.
+        #     tau = 1.
+        #     v = (warm(x, rho)).copy()
 
         fxfy, vy = f_x-f_y, v-y
         ac = norm2_grad_f_y + 2*mu*fxfy
@@ -305,8 +324,14 @@ def aam_ellipsoid(x, tensor, rank, rho, sg_steps, max_time):
         stop_time = time.time()
         tensor_hat  = tl.cp_to_tensor((None, x))
         logging_time = stop_time - start_time
-        neptune.log_metric('RSE (i)', x=i, y=RSE(tensor_hat, tensor))
-        neptune.log_metric('RSE', y=RSE(tensor_hat, tensor), x=logging_time)  
+        logging_val = RSE(tensor_hat, tensor)
+            
+        if noise is not None and logging_val < noise:
+            return logging_time
+
+        neptune.log_metric('RSE (i)', x=3*i, y=logging_val)
+        neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+        
         if logging_time > max_time:
             return logging_time
         start_time += time.time() - stop_time
