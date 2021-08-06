@@ -1,0 +1,276 @@
+import tensorly as tl
+import neptune
+from generate_data import RSE
+import time
+import numpy as np
+from oracles import *
+import sys
+import scipy
+from scipy.optimize import NonlinearConstraint, Bounds, dual_annealing, differential_evolution
+
+# def ellipsoid(oracle, x0, P0, constraints, constraints_grad, f_min, tol=1e-6):
+
+def global_optimization(fun, x0, constraints = [], tol = 1e-9, maxiter = int(100), method='differential_evolution'):
+    '''
+    Global optimization interface for our code from
+    https://docs.scipy.org/doc/scipy/reference/optimize.html?highlight=optimize#global-optimization 
+
+    Parameters
+    ----------
+    fun : callable
+        The objective function to be minimized.
+            ``fun(x, *args) -> float``
+        where ``x`` is an 1-D array with shape (n,) and ``args``
+        is a tuple of the fixed parameters needed to completely
+        specify the function.
+    
+    x0 : ndarray, shape (n,)
+        Initial guess. Array of real elements of size (n,),
+        where 'n' is the number of independent variables.
+
+    constraints : List of callable, optional
+    List of callable inequality constraints
+        Each constraint is a callable function from x:
+            ``constraint(x, *args) -> float``
+        Constraints are taken in a following form:
+            f_i(x) <= 0
+
+    '''
+
+    x       = x0
+    n       = len(x)
+
+    if method == 'differential_evolution':
+        result = differential_evolution(fun, 
+                                        bounds=[(0, 1) for coordinate in x0], 
+                                        constraints=tuple([NonlinearConstraint(constraint, -np.inf, 0) for constraint in constraints]),
+                                        seed=1, maxiter=maxiter, atol=tol, disp=True)
+        return result.x
+    else:
+        return x
+
+
+def oracle_hull(w, xs):
+    x = np.einsum('i,ijkl->jkl', w, np.array(xs))
+    grad = grad_f_loss(x)
+    g = np.array([(grad*(xs[0] - xs[2])).sum(), (grad*(xs[1] - xs[2])).sum()])
+    return (f_loss(x), g)
+
+def aam_global_iter(i, h, f_x, x, v, norm_prev, args):
+    eye = np.eye(x.shape[-1])
+    def check(h, args, forcereturn=False):
+        f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps = args
+        print(i,': ', h)
+        y = v + h * (x-v)
+        f_y = f_loss(y)
+        grad_f_y = np.zeros_like(y)
+        mask = np.ones(grad_f_y.shape[0],dtype=bool)
+        X, Y = [], []
+        for j in range(grad_f_y.shape[0]):    
+            mask[j]=False
+            inp = tl.tenalg.khatri_rao(y[mask])
+            tar = tl.unfold(tensor, mode=j).T
+            X.append(rho*eye + inp.T @ inp)
+            Y.append(inp.T @ tar)
+            grad_f_y[j] = (X[-1]@y[j].T - Y[-1]).T
+            mask[j]=True
+
+        if ((grad_f_y*(v-y)).sum() >= 0 and (f_x > f_y)) or forcereturn or i == 0:
+            da, db, dc = grad_f_y
+            da, db, dc = (da*da).sum(), (db*db).sum(), (dc*dc).sum()
+            norm2_grad_f_y = da+db+dc
+            x_new = [y.copy() for j in range(grad_f_y.shape[0])]
+            f_x_new = []
+            for j in range(grad_f_y.shape[0]):
+                # x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                if solve_method == 'np.linalg.solve':
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+                elif solve_method == 'cg':
+                    for i_column, rhs_column in enumerate(Y[j].T):
+                        x_new[j][j][i_column, :], _ = scipy.sparse.linalg.cg(X[j], rhs_column, x0 = x_new[j][j][i_column, :], tol = 1e-12, maxiter=method_steps)
+                        # print(f'💩 CG steps {_}')
+                else:
+                    x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
+
+                f_x_new.append(f_loss(x_new[j]))
+
+            j_star = np.argmin(f_x_new)
+           
+            
+            # x_new = x_new[j_star]
+            f_x_new=f_x_new[j_star]
+            mode=j_star
+            g_con = []
+            g_con.append(lambda x: np.array([-1,0],dtype=np.float64))
+            g_con.append(lambda x: np.array([0,-1],dtype=np.float64))
+            g_con.append(lambda x: np.array([1,0],dtype=np.float64))
+            g_con.append(lambda x: np.array([0,1],dtype=np.float64))
+            g_con.append(lambda x: np.array([1,1],dtype=np.float64))
+
+            con=[]
+            con.append(lambda x: -x[0])
+            con.append(lambda x: -x[1])
+            con.append(lambda x: x[0]-1)
+            con.append(lambda x: x[1]-1)
+            con.append(lambda x: sum(x)-1)
+
+
+            w0 = np.zeros(2, dtype=np.float64)
+            if j_star < 2:
+                w0[j_star]=1
+
+            def oracle_hull(w, xs):
+                x = w[0]*xs[0] + w[1]*xs[1] + (1 - w[0] - w[1])*xs[2]
+                return f_loss(x)
+            
+            fun = lambda w: oracle_hull(w, x_new)
+            
+            w=global_optimization(fun, w0, con, tol = 1e-9, maxiter = int(100), method='differential_evolution')
+            # w= ellipsoid(oracle, w0, np.array([[1, 0], [0, 1]]), con, g_con, f_x_new)
+            x_new = w[0]*x_new[0] + w[1]*x_new[1] + (1 - w[0] - w[1])*x_new[2]
+            f_x_new=f_loss(x_new)
+
+            return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
+        else:
+            return False, grad_f_y
+
+    hl=None
+    hr=np.float64(h)
+    k=int(hr==1.0)
+    fastreturn = True
+    while True: #find right endpoint for line search
+        is_ok, ret = check(hr, args)
+        fastreturn = False
+        if is_ok:
+            return ret
+        else:
+            gr = ret
+        if (gr*(x-v)).sum() < 0:
+            hl=hr
+            hr= 1 + 1e-8 * k**10
+        else:
+            break
+        k-=-1
+    
+    #step left    
+    tmp=max(0, min(hr-(1-(i+1)/(i+2)), (i+1)/(i+2))) #find left endpoint for line search
+    k=1
+    while hl==None:
+        #print('-=2.5=-: [', hl, ', ', hr, ']')
+        is_ok, ret = check(tmp, args)
+        if is_ok:
+            return ret
+        else:
+            gtmp = ret
+        if (gtmp*(x-v)).sum() <= 0:
+            hl=tmp
+            break
+        else:
+            hr=tmp
+        if tmp > 0:
+             tmp = 1 - (1-tmp**(4)) #try this
+        else:
+            tmp = - 1e-8 * k**10
+        k-=-1
+
+    k=0
+    while True:
+        # print('[', hl, ', ', hr, ']')
+        if hr < 0.8 or hl >= 1.:
+            hc = hl + (hr-hl)*3/5
+        else:
+            hc = hl + (hr-hl)*4/5
+        is_ok, ret = check(hc, args, hc==hr or hc==hl)
+        k-=-1
+        if is_ok:
+            return ret
+        else:
+            gc = ret
+        if (gc*(x-v)).sum() > 0:
+            hr=hc
+        else:
+            hl=hc
+
+def aam_global(x, tensor, rank, rho, max_time, solve_method=None, method_steps=None, noise=None):
+    f_loss = lambda x : f(x, tensor, rho)
+    grad_f_loss = lambda x : grad_f(x, tensor, rho)
+    argmin_mode = lambda mode, x : argmin(mode, x, tensor, rho)
+    args=f_loss, grad_f_loss, argmin_mode, tensor, rho, solve_method, method_steps
+
+    tensor_hat  = tl.cp_to_tensor((None, x))
+    neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
+    neptune.log_metric('RSE', y=RSE(tensor_hat, tensor), x=0)  
+    
+    mu=0 #ONLY!
+    sa = 0.
+    tau = 1.
+    v = x.copy()
+    f_x = f_loss(x)
+    h=np.ones(3, np.float64)
+
+    i=0
+    mode=0
+    norm2_grad_f_y=None
+    start_time = time.time()
+    while True:
+        # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
+        ret, forcereturn = aam_global_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
+
+        if forcereturn and f_x < f_y:
+            print('restart\n')
+            mu=0 #ONLY!
+            sa = 0.
+            tau = 1.
+            # x=warm(x)
+            v = x.copy()
+            if not restarted:
+                restarted = True
+                continue
+            else:
+                return logging_time
+        restarted = False
+
+
+        y, f_y, grad_f_y, norm2_grad_f_y, x, f_x, mode, t_tmp = ret
+        h[mode]=t_tmp
+
+        # if f_x > f_y:
+        #     return logging_time
+        #     x=y.copy()
+        #     f_x = f_y
+        #     mu=0 #ONLY!
+        #     sa = 0.
+        #     tau = 1.
+        #     v = (warm(x, rho)).copy()
+
+        fxfy, vy = f_x-f_y, v-y
+        ac = norm2_grad_f_y + 2*mu*fxfy
+        bc = 2*mu*sa*fxfy + 2*tau*fxfy - mu*tau*((vy*vy).sum())
+        cc = 2*sa*tau*fxfy
+        a = (-bc + np.sqrt(bc*bc - 4*ac*cc)) / 2 / ac
+        sa = sa + a
+        v = tau*v + mu*a*y - a * (grad_f_y)
+        tau = tau+mu*a
+        v/=tau
+        i-=-1
+        print('a: ', a)
+        print('\n')
+
+        
+
+        stop_time = time.time()
+        tensor_hat  = tl.cp_to_tensor((None, x))
+        logging_time = stop_time - start_time
+        logging_val = RSE(tensor_hat, tensor)
+            
+        if noise is not None and logging_val < noise:
+            return logging_time
+
+        neptune.log_metric('RSE (i)', x=3*i, y=logging_val)
+        neptune.log_metric('RSE (t)', x=logging_time, y=logging_val)  
+        
+        if logging_time > max_time:
+            return logging_time
+        start_time += time.time() - stop_time
+
+    
