@@ -34,14 +34,12 @@ def aam_min_scalar_iter(i, h, f_x, x, v, norm_prev, args):
             # x_new = y[:,None]
             f_x_new = []
             for j in range(grad_f_y.shape[0]):
-                x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
-
                 if solve_method == 'np.linalg.solve':
                     x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
                 elif solve_method == 'cg':
                     for i_column, rhs_column in enumerate(Y[j].T):
-                        x_new[j][j][i_column, :], _ = scipy.sparse.linalg.cg(X[j], rhs_column, x0 = x_new[j][j][i_column, :], tol = 1e-12, maxiter=method_steps)
-                        # print(f'💩 CG steps {_}')
+                        x_old = x_new[j][j][i_column, :].copy()
+                        x_new[j][j][i_column, :], _ = scipy.sparse.linalg.cg(X[j], rhs_column, x0 = x_old, tol = 1e-12, maxiter = method_steps)
                 else:
                     x_new[j][j] = (np.linalg.solve(X[j], Y[j])).T
 
