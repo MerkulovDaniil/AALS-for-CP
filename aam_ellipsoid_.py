@@ -262,11 +262,12 @@ def aam_ellipsoid(x, tensor, rank, rho, max_time, solve_method=None, method_step
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
-    neptune.log_metric('RSE', y=RSE(tensor_hat, tensor), x=0)  
+    neptune.log_metric('RSE (t)', y=RSE(tensor_hat, tensor), x=0)  
     
     mu=0 #ONLY!
     sa = 0.
     tau = 1.
+    x=x.copy()
     v = x.copy()
     f_x = f_loss(x)
     h=np.ones(3, np.float64)

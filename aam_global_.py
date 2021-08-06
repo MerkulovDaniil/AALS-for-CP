@@ -128,8 +128,10 @@ def aam_global_iter(i, h, f_x, x, v, norm_prev, args):
             w=global_optimization(fun, w0, con, tol = 1e-9, maxiter = int(100), method='differential_evolution')
             # w= ellipsoid(oracle, w0, np.array([[1, 0], [0, 1]]), con, g_con, f_x_new)
             x_new = w[0]*x_new[0] + w[1]*x_new[1] + (1 - w[0] - w[1])*x_new[2]
+            # print('1️⃣', f_x_new)
             f_x_new=f_loss(x_new)
-
+            # print('2️⃣', f_x_new)
+            
             return True, ((y, f_y, grad_f_y , norm2_grad_f_y, x_new, f_x_new, mode, h), forcereturn)
         else:
             return False, grad_f_y
@@ -199,11 +201,12 @@ def aam_global(x, tensor, rank, rho, max_time, solve_method=None, method_steps=N
 
     tensor_hat  = tl.cp_to_tensor((None, x))
     neptune.log_metric('RSE (i)', x=0, y=RSE(tensor_hat, tensor))
-    neptune.log_metric('RSE', y=RSE(tensor_hat, tensor), x=0)  
+    neptune.log_metric('RSE (t)', y=RSE(tensor_hat, tensor), x=0)  
     
     mu=0 #ONLY!
     sa = 0.
     tau = 1.
+    x=x.copy()
     v = x.copy()
     f_x = f_loss(x)
     h=np.ones(3, np.float64)
@@ -216,7 +219,8 @@ def aam_global(x, tensor, rank, rho, max_time, solve_method=None, method_steps=N
         # sys.stdout.write('\r'+f'🤖 AALS. Error {errors[-1]}')
         ret, forcereturn = aam_global_iter(i, h[mode], f_x, x, v, norm2_grad_f_y, args)
 
-        if forcereturn and f_x < f_y:
+        if forcereturn:
+        # if forcereturn and f_x < f_y:
             print('restart\n')
             mu=0 #ONLY!
             sa = 0.
@@ -228,6 +232,7 @@ def aam_global(x, tensor, rank, rho, max_time, solve_method=None, method_steps=N
                 continue
             else:
                 return logging_time
+                # print('💩')
         restarted = False
 
 
