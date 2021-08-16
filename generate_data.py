@@ -20,6 +20,10 @@ def generate_3d_tensor(sizes, rank, mu):
     return tensor
     # return tensor, a,b,c
 
+def generate_mm_tensor(size):
+    T = np.einsum('ij,kl,mn->imlnjk', np.eye(size,size), np.eye(size,size), np.eye(size,size)).reshape(size*size, size*size, size*size, order='F')
+    return T
+
 def cp_tensor_from_matrices(factors):
     a,b,c = factors
     return np.einsum('ip,jp,kp->ijk', a, b, c)
